@@ -4,4 +4,5 @@ This is a python script that will log into the steam website and put listings up
 Future features:
 
 -adjustible selling margin based off config file 
+
 -Items other than trading cards, black and white lists of item types
