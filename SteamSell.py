@@ -32,18 +32,20 @@ class SteamWebInstance:
         opt=Options()
         #opt.headless=True
         self.driver=webdriver.Firefox(options=opt)
+    
     def __getLoginInfo(self):
         user=input('Please enter you Steam username: ')
         password=getpass(prompt='Please enter you Steam password: ')
         self.__loginInfo =Login(user,password)
+    
     def start(self):
         self.__wait=WebDriverWait(self.driver,15)
         self.__smallWait=WebDriverWait(self.driver,1)
         self.__login()
-    def __closeExtraHandles(self):
+    
+    def __returnToMainTab(self):
         """
-        Closes anything other than the main Harvestpoint window
-        Needs fixing
+        Needs fixing (Cant remember why)
         """
         handles = self.driver.window_handles
         for handle in handles:
@@ -65,12 +67,6 @@ class SteamWebInstance:
                 newTab=handles[x]
         self.driver.switch_to.window(newTab)
         self.driver.get(link)
-
-    def __returnToMainTab(self):
-        """
-        Closes extra tabs and goes back to main tab
-        """
-        self.__closeExtraHandles()
 
     def __login(self):
         self.driver.get(self.__loginUrl)
