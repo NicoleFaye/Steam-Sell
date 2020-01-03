@@ -6,3 +6,5 @@ Future features:
 -adjustible selling margin based off config file 
 
 -Items other than trading cards, black and white lists of item types
+
+-Ablility to see if you have a full set of cards that complete a badge

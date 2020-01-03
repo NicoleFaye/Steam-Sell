@@ -25,8 +25,16 @@ Login = collections.namedtuple('Login',['username','password'])
 
 
 class steamItem:
+    #amount of gems worth
+    #starting price
+    #isTradingCard
+    #badge progress?
+    #inventory(which its in)
+    #game
+    #item name
     def __init__(self,link):
         self.link=link
+        
 
 class SteamWebInstance:
     def __init__(self):
@@ -142,9 +150,11 @@ class SteamWebInstance:
             links[i]=self.baseInventoryLink+links[i]
         return set(links)
 
-        def createSteamItem(self,link):
-            pass
-
+    def createSteamItem(self,link):
+        self.driver.get(link)
+        elem=self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
+        activeRightDivParent=elem.find_element_by_xpath("div[@class='inventory_page_right']")
+        activeRightDiv=activeRightDivParent.find_element_by_xpath("div[not(contains(@style,'display: none;'))]")
 
 instance=SteamWebInstance()
 instance.start()
