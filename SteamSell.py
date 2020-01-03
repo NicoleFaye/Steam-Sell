@@ -24,6 +24,10 @@ import base64
 Login = collections.namedtuple('Login',['username','password'])
 
 
+class steamItem:
+    def __init__(self,link):
+        self.link=link
+
 class SteamWebInstance:
     def __init__(self):
         self.__loginUrl='https://store.steampowered.com/login/?redir=&redir_ssl=1'
@@ -39,10 +43,12 @@ class SteamWebInstance:
         self.__loginInfo =Login(user,password)
     
     def start(self):
-        self.__wait=WebDriverWait(self.driver,15)
+        self.__wait=WebDriverWait(self.driver,25)
         self.__smallWait=WebDriverWait(self.driver,1)
         self.__login()
         self.__navigateToInventory()
+        itemLinks=self.__getItemLinks()
+        return itemLinks
     
     def __returnToMainTab(self):
         """
@@ -68,7 +74,12 @@ class SteamWebInstance:
                 newTab=handles[x]
         self.driver.switch_to.window(newTab)
         self.driver.get(link)
-
+    
+    def showElement(self,elem):
+        data=elem.screenshot_as_base64
+        im=Image.open(BytesIO(base64.b64decode(data)))
+        im.show()
+        
     def __login(self):
         self.driver.get(self.__loginUrl)
         self.__mainHandle=self.driver.current_window_handle
@@ -100,17 +111,42 @@ class SteamWebInstance:
         elem=self.__wait.until(EC.visibility_of_element_located((By.XPATH,"//a[@class='menuitem supernav username']")))
         profileLink=elem.get_attribute('href')
         inventoryLink='/'.join(profileLink.split('/')[:-2])+'/inventory/'
+        self.baseInventoryLink=inventoryLink
         self.driver.get(inventoryLink)
-    def getItemLinks(self):
+    def __getItemLinks(self):
         tabs=self.__wait.until(EC.visibility_of_element_located((By.XPATH,"//div[@class='games_list_tabs']")))
         firstTab=tabs.find_elements_by_xpath("a")[0]
-        baseInvID=firstTab.get_attribute('href')[1:]
+        #playerID=self.driver.current_url.split('/')[-3]
+        #baseInvID=firstTab.get_attribute('href')[1:]
         firstTab.click()
-        elem=self.driver.find_element_by_id('active_inventory_page')
+        links=[]
+        
+        #loop grabs all but last page twice, removed dupes as a temporary fix at the end of the function
+        while True:
+            elem=self.driver.find_element_by_id('active_inventory_page')
+            inventoryDivParent=elem.find_element_by_xpath("div[@class='inventory_page_left']/div[@id='inventories']")
+            activeLeftDiv=inventoryDivParent.find_element_by_xpath("div[@style!='display: none;']")
+            activeDivItems=activeLeftDiv.find_elements_by_xpath("div[@style!='display: none;' and @class='inventory_page']/div[@class='itemHolder']/div")
+            time.sleep(.5)
+            for div in activeDivItems:
+                temp='#'+div.get_attribute('id')
+                links.append(temp)
+            pageControls=elem.find_element_by_xpath("div[@class='inventory_page_left']/div[@id='inventory_pagecontrols']")
+            nextPageButton=pageControls.find_element_by_id('pagebtn_next')
+            nextPageButtonEnabled='disabled' not in nextPageButton.get_attribute('class')
+            if not nextPageButtonEnabled:
+                break
+            self.driver.execute_script("InventoryNextPage();")
+
+        for i in range(len(links)):
+            links[i]=self.baseInventoryLink+links[i]
+        return set(links)
+
+        def createSteamItem(self,link):
+            pass
 
 
 instance=SteamWebInstance()
 instance.start()
-instance.getItemLinks()
 print('hi')
         
