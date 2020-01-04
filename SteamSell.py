@@ -115,12 +115,14 @@ class SteamWebInstance:
             elem.send_keys(Keys.ENTER)
         except Exception as _:
             print('No two factor authentication needed')
+
     def __navigateToInventory(self):
         elem=self.__wait.until(EC.visibility_of_element_located((By.XPATH,"//a[@class='menuitem supernav username']")))
         profileLink=elem.get_attribute('href')
         inventoryLink='/'.join(profileLink.split('/')[:-2])+'/inventory/'
         self.baseInventoryLink=inventoryLink
         self.driver.get(inventoryLink)
+
     def __getItemLinks(self):
         tabs=self.__wait.until(EC.visibility_of_element_located((By.XPATH,"//div[@class='games_list_tabs']")))
         firstTab=tabs.find_elements_by_xpath("a")[0]
