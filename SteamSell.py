@@ -15,7 +15,6 @@ from selenium.webdriver.firefox.options import Options
 from datetime import datetime
 from io import BytesIO
 import pandas as pd
-from bs4 import BeautifulSoup
 import re
 from getpass import getpass
 import collections
@@ -25,15 +24,20 @@ Login = collections.namedtuple('Login',['username','password'])
 
 
 class steamItem:
-    #amount of gems worth
-    #starting price
-    #isTradingCard
+    #amount of gems worth?
     #badge progress?
-    #inventory(which its in)
-    #game
-    #item name
+    #game?
     def __init__(self,link):
         self.link=link
+    def setName(self,name):
+        self.name=name
+    def setItemType(self,itemType):
+        self.itemType=itemType
+        self.isTradingCard='trading card' in self.itemType.lower()
+    def setResidingInventory(self,inv):
+        self.residingInventory=inv
+    def setPrice(self,price):
+        self.price=price
         
 
 class SteamWebInstance:
@@ -56,8 +60,12 @@ class SteamWebInstance:
         self.__login()
         self.__navigateToInventory()
         itemLinks=self.__getItemLinks()
-        return itemLinks
-    
+        self.items=[]
+        for link in itemLinks:
+            self.items.append(self.createSteamItem(link))
+        for item in self.items:
+            self.sellItem(item,True)
+
     def __returnToMainTab(self):
         """
         Needs fixing (Cant remember why)
@@ -150,13 +158,63 @@ class SteamWebInstance:
 
         for i in range(len(links)):
             links[i]=self.baseInventoryLink+links[i]
-        return set(links)
+        return list(set(links))
 
     def createSteamItem(self,link):
+        #needs to be replaced to be used with beautiful soup so there is no stupid waits needed to work consistently
         self.driver.get(link)
         elem=self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
         activeRightDivParent=elem.find_element_by_xpath("div[@class='inventory_page_right']")
+        time.sleep(.25)
         activeRightDiv=activeRightDivParent.find_element_by_xpath("div[not(contains(@style,'display: none;'))]")
+        time.sleep(.25)
+        descriptionDiv=activeRightDiv.find_element_by_xpath("div/div[@class='item_desc_description']")
+        time.sleep(.25)
+        
+        itemName=descriptionDiv.find_element_by_xpath("h1[@class='hover_item_name']").text
+        time.sleep(.25)
+        itemDescGameInfo=descriptionDiv.find_element_by_xpath("div[@class='item_desc_game_info']")
+        time.sleep(.25)
+        residingInventory=itemDescGameInfo.find_element_by_xpath("div[contains(@id,'game_name')]").text
+        time.sleep(.25)
+        itemType=descriptionDiv.find_element_by_xpath("div/div[contains(@id,'item_type')]").text
+
+        item=steamItem(link)
+        item.setName(itemName)
+        item.setItemType(itemType)
+        item.setResidingInventory(residingInventory)
+        
+        marketDiv=activeRightDiv.find_element_by_xpath("div[contains(@id,'market_content')]")
+        time.sleep(.25)
+        marketActionsDiv=marketDiv.find_element_by_xpath("div[@class='item_market_actions']")
+        if marketActionsDiv.get_attribute('style') == 'display: none;':
+            item.setPrice(None)
+        else:
+            temp=marketActionsDiv.find_element_by_xpath('div').text
+            x=temp.split('\n')
+            for z in x:
+                if 'Starting at' in z:
+                    temp=z.split('$')[-1]
+            item.setPrice(temp)
+
+        return item
+
+    def sellItem(self,item,mustBeTradingCard):
+        if mustBeTradingCard and (not item.isTradingCard):
+            return
+        self.driver.get(item.link)
+        self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
+        self.driver.execute_script("SellCurrentSelection();")
+        buyerPrice=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_buyercurrency_input")))
+        buyerPrice.send_keys(item.price)
+        terms=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_accept_ssa")))
+        terms.click()
+        accept=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_accept")))
+        accept.click()
+        okay=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_ok")))
+        okay.click()
+        time.sleep(1)
+
 
 instance=SteamWebInstance()
 instance.start()
