@@ -29,6 +29,7 @@ class steamItem:
     #game?
     def __init__(self,link):
         self.link=link
+        self.sold=False
     def setName(self,name):
         self.name=name
     def setItemType(self,itemType):
@@ -47,8 +48,12 @@ class SteamWebInstance:
         self.__loginInfo=None
         opt=Options()
         #opt.headless=True
+        opt.add_argument("--window-size=1820,980")
         self.driver=webdriver.Firefox(options=opt)
-    
+
+    def __del__(self):
+        self.driver.close()
+            
     def __getLoginInfo(self):
         user=input('Please enter you Steam username: ')
         password=getpass(prompt='Please enter you Steam password: ')
@@ -57,14 +62,20 @@ class SteamWebInstance:
     def start(self):
         self.__wait=WebDriverWait(self.driver,25)
         self.__smallWait=WebDriverWait(self.driver,1)
+        print('Logging in')
         self.__login()
+        print('Navigating to player inventory')
         self.__navigateToInventory()
+        print("Getting item links")
         itemLinks=self.__getItemLinks()
         self.items=[]
+        print("Grabbing items")
         for link in itemLinks:
             self.items.append(self.createSteamItem(link))
+        print("Selling cards")
         for item in self.items:
             self.sellItem(item,True)
+            print (item.name)
 
     def __returnToMainTab(self):
         """
@@ -200,21 +211,41 @@ class SteamWebInstance:
         return item
 
     def sellItem(self,item,mustBeTradingCard):
-        if mustBeTradingCard and (not item.isTradingCard):
-            return
-        self.driver.get(item.link)
-        self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
-        self.driver.execute_script("SellCurrentSelection();")
-        buyerPrice=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_buyercurrency_input")))
-        buyerPrice.send_keys(item.price)
-        terms=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_accept_ssa")))
-        terms.click()
-        accept=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_accept")))
-        accept.click()
-        okay=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_ok")))
-        okay.click()
-        time.sleep(1)
-
+        try:
+            if mustBeTradingCard and (not item.isTradingCard):
+                return
+            if float(item.price) <.01:
+                raise Exception("wtf happened")
+            self.driver.get(item.link)
+            self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
+            time.sleep(2)
+            self.driver.execute_script("SellCurrentSelection();")
+            buyerPrice=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_buyercurrency_input")))
+            buyerPrice.send_keys(item.price)
+        except Exception as e:
+            print(e)
+        try:
+            terms=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_accept_ssa")))
+            terms.click()
+        except Exception as e:
+            print(e)
+        try:
+            accept=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_accept")))
+            accept.click()
+        except Exception as e:
+            print(e)
+        try:
+            #timeout
+            okay=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_ok")))
+            okay.click()
+        except Exception as e:
+            print(e)
+        try:
+            time.sleep(1)
+        except Exception as e:
+            print(e)
+        
+        item.sold=True
 
 instance=SteamWebInstance()
 instance.start()
