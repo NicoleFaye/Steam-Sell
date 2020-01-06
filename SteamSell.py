@@ -195,32 +195,25 @@ class SteamWebInstance:
         item.setItemType(itemType)
         item.setResidingInventory(residingInventory)
         
-        marketDiv=activeRightDiv.find_element_by_xpath("div[contains(@id,'market_content')]")
-        time.sleep(.25)
-        marketActionsDiv=marketDiv.find_element_by_xpath("div[@class='item_market_actions']")
-        if marketActionsDiv.get_attribute('style') == 'display: none;':
-            item.setPrice(None)
-        else:
-            temp=marketActionsDiv.find_element_by_xpath('div').text
-            x=temp.split('\n')
-            for z in x:
-                if 'Starting at' in z:
-                    temp=z.split('$')[-1]
-            item.setPrice(temp)
-
         return item
 
     def sellItem(self,item,mustBeTradingCard):
         try:
             if mustBeTradingCard and (not item.isTradingCard):
                 return
-            if float(item.price) <.01:
-                raise Exception("wtf happened")
             self.driver.get(item.link)
             self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
             time.sleep(2)
             self.driver.execute_script("SellCurrentSelection();")
             buyerPrice=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_buyercurrency_input")))
+            
+            
+            #new price get needed
+            item.setPrice()
+            
+            
+            
+            
             buyerPrice.send_keys(item.price)
         except Exception as e:
             print(e)
@@ -251,3 +244,9 @@ instance=SteamWebInstance()
 instance.start()
 print('hi')
         
+
+
+
+
+
+#div[@class="jqplot-axis jqplot-yaxis"]
