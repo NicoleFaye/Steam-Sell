@@ -16,6 +16,7 @@ from datetime import datetime
 from io import BytesIO
 import pandas as pd
 import re
+from bs4 import BeautifulSoup 
 from getpass import getpass
 import collections
 import base64
@@ -174,6 +175,25 @@ class SteamWebInstance:
     def createSteamItem(self,link):
         #needs to be replaced to be used with beautiful soup so there is no stupid waits needed to work consistently
         self.driver.get(link)
+        self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
+        """
+        NEEDS TO have chained finds fixed and replaced
+        soup = BeautifulSoup(self.driver.page_source, 'html.parser')
+        activeRightDivParent=soup.find(id="active_inventory_page").find('div',{'class':'inventory_page_right'})
+        activeRightDiv=activeRightDivParent.find('div',style=lambda x: x and 'display: none;' not in x)
+        descriptionDiv=activeRightDiv.find('div').find('div',{'class':'item_desc_description'})
+        itemName=descriptionDiv.find('h1',{'class':'hover_item_name'}).get_text()
+        
+        itemDescGameInfo=descriptionDiv.find('div',{'class','item_desc_game_info'})
+        residingInventory=itemDescGameInfo.find('div',id=lambda x: x and 'game_name' in x).get_text()
+        itemType=descriptionDiv.find('div').find('div',id=lambda x: x and 'item_type' in x).get_text()
+        item=steamItem(link)
+        item.setName(itemName)
+        item.setItemType(itemType)
+        item.setResidingInventory(residingInventory)
+        """
+        
+        
         elem=self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
         activeRightDivParent=elem.find_element_by_xpath("div[@class='inventory_page_right']")
         time.sleep(.25)
@@ -195,49 +215,53 @@ class SteamWebInstance:
         item.setItemType(itemType)
         item.setResidingInventory(residingInventory)
         
+        marketDiv=activeRightDiv.find_element_by_xpath("div[contains(@id,'market_content')]")
+        time.sleep(.25)
+        marketActionsDiv=marketDiv.find_element_by_xpath("div[@class='item_market_actions']")
+        if marketActionsDiv.get_attribute('style') == 'display: none;':
+            item.setPrice(None)
+        else:
+            temp=marketActionsDiv.find_element_by_xpath('div').text
+            x=temp.split('\n')
+            for z in x:
+                if 'Starting at' in z:
+                    temp=z.split('$')[-1]
+            item.setPrice(temp)
+
         return item
 
     def sellItem(self,item,mustBeTradingCard):
         try:
             if mustBeTradingCard and (not item.isTradingCard):
                 return
+            if item.price == '':
+                print('no price wtf')
+                return
             self.driver.get(item.link)
             self.__wait.until(EC.visibility_of_element_located((By.ID,'active_inventory_page')))
-            time.sleep(2)
+            time.sleep(5)
             self.driver.execute_script("SellCurrentSelection();")
+            time.sleep(5)
             buyerPrice=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_buyercurrency_input")))
-            
-            
-            #new price get needed
-            item.setPrice()
-            
-            
-            
-            
             buyerPrice.send_keys(item.price)
-        except Exception as e:
-            print(e)
-        try:
+            time.sleep(5)
             terms=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_accept_ssa")))
             terms.click()
-        except Exception as e:
-            print(e)
-        try:
+            time.sleep(5)
             accept=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_accept")))
             accept.click()
+            time.sleep(5)
         except Exception as e:
             print(e)
         try:
             #timeout
             okay=self.__wait.until(EC.visibility_of_element_located((By.ID,"market_sell_dialog_ok")))
             okay.click()
+            time.sleep(5)
         except Exception as e:
+            self.sellItem(item,True)
             print(e)
-        try:
-            time.sleep(1)
-        except Exception as e:
-            print(e)
-        
+            return
         item.sold=True
 
 instance=SteamWebInstance()
